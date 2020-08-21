@@ -28,11 +28,45 @@
   "Get the value of a cell as a string, by changing the cell type to 'string'
    and then changing it back."
   [^Cell cell]
-  (let [ct    (.getCellType cell)
+  (.getStringCellValue cell)
+  #_(let [ct    (.getCellType cell)
         _     (.setCellType cell CellType/STRING)
         value (.getStringCellValue cell)]
     (.setCellType cell ct)
     value))
+
+(defmulti get-cell-value (fn [^Cell cell] (.getCellType cell)))
+
+(defmethod get-cell-value :default [^Cell cell]
+  nil)
+
+(defmethod get-cell-value CellType/STRING [^Cell cell]
+  (.getStringCellValue cell))
+
+(defmethod get-cell-value CellType/NUMERIC [^Cell cell]
+  (let [value (.getNumericCellValue cell)
+        int-part (Math/floor value)
+        fractional-part (- value int-part)]
+    (if (= 0.0 fractional-part)
+      (long int-part)
+      value)))
+
+(defmethod get-cell-value CellType/BLANK [^Cell cell]
+  "")
+
+(defmethod get-cell-value CellType/ERROR [^Cell cell]
+  "#ERROR")
+
+(defmethod get-cell-value CellType/BOOLEAN [^Cell cell]
+  (.getBooleanCellValue cell))
+
+(defmethod get-cell-value CellType/FORMULA [^Cell cell]
+  (let [type (.getCachedFormulaResultType cell)
+        fn (get-method get-cell-value type)]
+    (if (= type CellType/FORMULA)
+      (str "=" (.getCellFormula cell))
+      (fn cell))))
+
 
 ;; ## Rows
 ;; Rows are made up of cells. We consider the first row to be a header, and
@@ -58,7 +92,7 @@
   "Read all the cells in a row (including blanks) and return a list of values."
   [^Row row]
   (for [i (range 0 (.getLastCellNum row))]
-       (get-cell-string-value (.getCell row i))))
+    (get-cell-value (.getCell row i))))
 
 ;; ## Sheets
 ;; Workbooks are made up of sheets, which are made up of rows.
